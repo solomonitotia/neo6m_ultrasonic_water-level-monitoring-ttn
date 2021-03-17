@@ -1,0 +1,139 @@
+#include <TheThingsNetwork.h>
+#include <SoftwareSerial.h>
+#include <TinyGPS.h>
+#define trigPin 5
+#define echoPin 6
+TinyGPS gps;
+SoftwareSerial serialgps(2,3);
+SoftwareSerial loraSerial = SoftwareSerial(8, 7);
+#define debugSerial Serial
+// Set your AppEUI and AppKey
+const char *appEui = "70B3D57ED003EF69";
+const char *appKey = "B4AF71B9B7EF65716A91CA26ABE726CC";
+
+// Replace REPLACE_ME with TTN_FP_EU868 or TTN_FP_US915
+#define freqPlan TTN_FP_EU868
+int year;
+byte month, day, hour, minute, second, hundredths;
+unsigned long chars;
+unsigned short sentences, failed_checksum;
+long duration;
+//int distance1;
+
+TheThingsNetwork ttn(loraSerial, debugSerial, freqPlan);
+
+void setup()
+{
+pinMode(trigPin, OUTPUT);
+pinMode(echoPin, INPUT); 
+loraSerial.begin(57600);
+debugSerial.begin(9600);
+  // Wait a maximum of 10s for Serial Monitor
+  while (!debugSerial && millis() < 10000)
+    ;
+
+  debugSerial.println("-- STATUS");
+  ttn.showStatus();
+
+  debugSerial.println("-- JOIN");
+  ttn.join(appEui, appKey);
+//Serial.begin(9600);/
+serialgps.begin(9600);
+debugSerial.println("==========================");
+debugSerial.println("GPS");
+debugSerial.println("===========================");
+}
+
+void loop()
+{
+  float distance1;
+   // Clear the trigPin by setting it LOW:
+  digitalWrite(trigPin, LOW);
+  
+  delayMicroseconds(5);
+ // Trigger the sensor by setting the trigPin high for 10 microseconds:
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+  
+  // Read the echoPin. pulseIn() returns the duration (length of the pulse) in microseconds:
+  duration = pulseIn(echoPin, HIGH);
+  
+  // Calculate the distance:
+  distance1 = duration*0.034/2;
+//  
+//  // Print the distance on the Serial Monitor (Ctrl+Shift+M):
+//  Serial.print("Distance = ");
+//  Serial.print(distance);
+//  Serial.println(" cm");
+// ajsr04m();
+//debugSerial.println("-- LOOP");
+while(serialgps.available()) 
+{
+int c = serialgps.read(); 
+if(gps.encode(c)) 
+{
+float latitude, longitude;
+gps.f_get_position(&latitude, &longitude);
+uint8_t coords[9];
+uint32_t latit = (latitude)*100000;
+uint32_t longit = (longitude)*100000;
+uint32_t dist = distance1 *1000;
+
+coords[0] = latit;
+coords[1] = latit >> 8;
+coords[2] = latit >> 16;
+coords[3] = longit;
+coords[4] = longit >> 8;
+coords[5] = longit >> 16;
+coords[6] = dist;
+coords[7] = dist >>8;
+coords[8] = dist >>16;
+
+debugSerial.println("-- LOOP");
+debugSerial.print("Latitude: "); 
+debugSerial.println("-- LOOP");
+debugSerial.println(latit); 
+debugSerial.println("-- LOOP");
+debugSerial.print("Longitude: "); 
+debugSerial.println("-- LOOP");
+debugSerial.println(longit); 
+debugSerial.println("-- LOOP");
+debugSerial.println();
+debugSerial.println("Distance: ");
+debugSerial.println(dist); 
+debugSerial.println("-- LOOP");
+debugSerial.println();
+gps.stats(&chars, &sentences, &failed_checksum);
+
+ttn.sendBytes(coords, sizeof(coords));
+delay(2000);
+}
+}
+
+}
+//void ajsr04m()
+//{
+//    // Clear the trigPin by setting it LOW:
+//  digitalWrite(trigPin, LOW);
+//  
+//  delayMicroseconds(5);
+// // Trigger the sensor by setting the trigPin high for 10 microseconds:
+//  digitalWrite(trigPin, HIGH);
+//  delayMicroseconds(10);
+//  digitalWrite(trigPin, LOW);
+//  
+//  // Read the echoPin. pulseIn() returns the duration (length of the pulse) in microseconds:
+//  duration = pulseIn(echoPin, HIGH);
+//  
+//  // Calculate the distance:
+//  distance = duration*0.034/2 *1000;
+//    // Print the distance on the Serial Monitor (Ctrl+Shift+M):
+////    byte payload[2];
+////    payload[0]=highByte(distance);
+////    payload[1]=highByte(distance);
+//  debugSerial.print("Distance = ");
+//  debugSerial.print(distance);
+//  debugSerial.println(" cm");
+//  delay(500);
+//}
